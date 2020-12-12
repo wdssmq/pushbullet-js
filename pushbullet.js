@@ -1,3 +1,6 @@
+// alexschneider/pushbullet-js: Client side javascript pushbullet
+// https://github.com/alexschneider/pushbullet-js
+
 window.PushBullet = (function () {
   var pb = {};
   var pbURL = "https://api.pushbullet.com/v2/";
@@ -11,6 +14,7 @@ window.PushBullet = (function () {
   var httpResNoCont = 204;
 
   pb.APIKey = null;
+  pb.isGM = false;
 
   pb.push = function (pushType, devId, email, data, callback) {
     var parameters = { type: pushType.toLowerCase() };
@@ -203,6 +207,37 @@ window.PushBullet = (function () {
       } else {
         throw err;
       }
+    }
+    if (verb === "GET") {
+      var queryParams = [];
+      for (var key in parameters) {
+        queryParams.push(key + "=" + parameters[key]);
+      }
+      var queryString = queryParams.join("&");
+      url += "?" + queryString;
+      parameters = null;
+    }
+    if (pb.isGM) {
+      GM_xmlhttpRequest({
+        method: verb,
+        data: JSON.stringify(parameters),
+        url: url,
+        headers: {
+          "User-agent": window.navigator.userAgent,
+          "Content-Type": "application/json",
+          Authorization: "Basic " + window.btoa(pb.APIKey + ":"),
+        },
+        onload: function (response) {
+          if (callback) {
+            callback(null, response);
+          }
+        },
+        onerror: function (response) {
+          if (callback) {
+            callback("err", response);
+          }
+        },
+      });
     } else {
       var ajax = new XMLHttpRequest();
       var async = false;
@@ -219,15 +254,6 @@ window.PushBullet = (function () {
             return callback(null, res);
           }
         };
-      }
-      if (verb === "GET") {
-        var queryParams = [];
-        for (var key in parameters) {
-          queryParams.push(key + "=" + parameters[key]);
-        }
-        var queryString = queryParams.join("&");
-        url += "?" + queryString;
-        parameters = null;
       }
       ajax.open(verb, url, async);
       if (!fileUpload) {
